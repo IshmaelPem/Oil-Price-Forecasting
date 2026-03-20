@@ -1,4 +1,4 @@
-Goal: To precit Brent Crude Oil prices 365 into the future.
+Goal: To precit Brent Crude Oil prices 365 into the future
 
 Toos: R, Tidyverse, Prophet 
 
