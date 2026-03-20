@@ -1,0 +1,116 @@
+---
+title: "MTH6139 Time Series" 
+subtitle: "Coursework 1 - Global Oil Prices & Geopolitcal Events" 
+author: "Ishmael Pemberton" 
+date: "Spring Term 2025" 
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab 
+    highlight: tango
+---
+ 
+```{r, echo=FALSE}
+# This code will display the QMUL logo at the top right of the page
+# Do not change this code
+htmltools::img(src = knitr::image_uri("images/QMlogo.png"),
+               alt = 'logo',
+               style = 'position:absolute; top:0; right:0; padding:10px; width:20%;')
+```
+
+# 📌 Introduction 
+This project aims to explore the relationship between global geopolitical events from 2010 to 2026, such as the recent closure of the Strait of Hormuz, and their effects on global oil markets, particularly on the Brent Crude Oil price. This project also utilises Meta's Prophet forecasting procedure to generate predictions for the near future, which can be used to inform decision making in a highly volatile market.   
+
+# 💻 Data Loading
+First, we load the necessary libraries and import our datasets from the project's data folder.
+
+```{r setup, message=FALSE, warning=FALSE}
+library(prophet)
+library(tidyverse)
+
+# Loading the datasets
+HistoricalOilData <- read_csv("data/oil.csv")
+GeopoliticalEvents <- read_csv("data/events.csv")
+```
+
+# 🔍 Historical Data Analysis
+To get a better understanding of the price trends of Brent Crude Oil, we plot a graph of the price from 2010 to 2026 and include a linear regression line to help understand the long-term linear trend. 
+
+```{r historical-data, warning=FALSE}
+ggplot(HistoricalOilData, aes(x = as.Date(date), y = brent_price)) +
+  geom_line(color = "darkblue") +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  theme_minimal() +
+  labs(title = "Historical Brent Price with Linear Trend",
+       x = "Year", y = "Price (USD)")
+```
+
+We see that oil prices have been gradually declining over the last 16 years. In 2011 and up until 2015, oil traded at above USD 100 per barrel. Leading up to this, 2010 experienced the strongest growth in oil demand since 2004, as a result of economies recovering after the Global Financial Crisis of 2008.
+
+However, in the summer of 2014 prices collapsed, falling below the USD 50 mark at the start of 2015. This can be attributed to the increasing extraction of shale oil by the US, which led to significant oversupply. After the price of Brent Crude fell below USD 30 per barrel in Jan 2016, countries began freeze their production which gradually stabilised prices for the next few years.
+
+Brent Crude Oil then hit a new 20-year low in April 2020, where price per barrel fell from USD 50 to less than USD 20. This was the effect of the COVID-19 pandemic, which led to global GDP declining by 3% in 2020 and halted tourism globally. As a result, global demand for oil fell significantly.  
+
+Since then, prices have recovered but we have seen recent spikes in oil prices due to geopolitical tension. First, the Russian invasion of Ukraine in 2022 that shortly hiked prices to USD 120 in June 2022, then the US-Israeli war on Iran in February 2026 which has increased prices by 50% since.
+
+
+# 🧹 Data Preparation
+To prepare for our forecast, we format the data in the required format for Prophet.
+
+```{r preparation}
+# Formatting the price data
+OilPriceDataframe <- data.frame(
+    ds = as.Date(HistoricalOilData$date),
+    y = HistoricalOilData$brent_price
+)
+
+# Formatting the events as holidays
+OilMarketHolidays <- data.frame(
+    ds = as.Date(GeopoliticalEvents$date),
+    holiday = GeopoliticalEvents$event_description
+)
+```
+
+# 🕔 Time Series Modelling
+We then initialise the Prophet model defining our variables clearly. The model is defined by the following additive decomposition formula:
+
+$$y(t) = g(t) + s(t) + h(t) + \epsilon_t$$
+
+Where $g(t)$ is the trend, $s(t)$ is seasonality, and $h(t)$ represents the impact of geopolitical events (holidays).
+
+```{r modelling, warning=FALSE}
+# Initialise and fit the model using the events data
+OilPriceModel <- prophet::prophet(OilPriceDataframe, holidays = OilMarketHolidays)
+```
+
+# 🔮 Data Forecasting
+We create a time frame for the next 365 days and predict the future values and uncertainty intervals.
+
+```{r forecasting}
+FutureDateDataframe <- prophet::make_future_dataframe(OilPriceModel, periods = 365)
+OilPriceForecast <- predict(OilPriceModel, FutureDateDataframe)
+```
+
+# 📈 Results and Discussion
+Finally, we plot our main forecast and individual components showing the overall trend, frequency distribution of geopolitical events (holdiays), and weekly and yearly price movements.
+
+```{r results, warning=FALSE}
+# Plotting the main forecast
+plot(OilPriceModel, OilPriceForecast) +
+     theme_minimal() +
+     labs(title = "One-Year Brent Oil Price Forecast",
+          x = "Date",
+          y = "Price (USD)")
+
+# Plotting the components
+prophet_plot_components(OilPriceModel, OilPriceForecast)
+```
+
+In our One-Year Brent Oil Price Forecast, the model predicts a strong correction in price over the next few months.  This implies that it will follow the long-term trend as seen in by the linear regression line in the historical graph. This represents a fall from about USD 100 to USD 70 by the end of the year. As tensions reduce in the Middle East this is to be expected. Although, the margin of error (light blue area) increases the further the model projects into the future, due to higher uncertainty. 
+
+In our components forecast, the overall trend is expected to continue as gradually declining prices. This might be driven by the rise in renewable energy sources, such as solar power, in many countries that are heavily dependent on oil imports. Geopolitical events have also become increasingly close together, which suggests increasing global instability. Regarding seasonality, price action appears to be higher on weekends compared to mid-week and prices overall seem to be highest in the spring and lowest in the winter, which could potentially be due to lower demand for transport fuel in winter months. 
+
+# 📚 References
+- Dataset: <https://www.kaggle.com/datasets/kavyadhyani/global-oil-prices-and-geopolitical-events>
+- The evolution of the price per barrel of crude oil: <https://www.planete-energies.com/en/media/article/brief-history-oil-prices#:~:text=In%202010%2C%20the%20economic%20recovery,in%20terms%20of%20production%20capacity>
